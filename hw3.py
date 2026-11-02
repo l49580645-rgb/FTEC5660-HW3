@@ -57,7 +57,7 @@ def load_env_file(path: Path = Path(".env")) -> None:
 
 # Choose any 3 of the 15 points, e.g. CHOSEN_POINTS = [1, 7, 15]. Your agent
 # gives a PASS or FAIL verdict on these 3 points only, with your own rule for each.
-CHOSEN_POINTS: list[int] = []  ### YOUR CODE HERE
+CHOSEN_POINTS: list[int] = [1, 5, 6]  ### YOUR CODE HERE
 
 
 def build_agent() -> Any:
@@ -72,45 +72,150 @@ def build_agent() -> Any:
     you will probably create one tool-calling agent per company there.
     """
     ### YOUR CODE HERE
-    return None
+    from langchain_deepseek import ChatDeepSeek
+
+    return ChatDeepSeek(
+        model=MODEL_NAME,
+        temperature=0,
+    )
 
 
-async def analyze_companies(agent: Any, companies: dict[str, list[Any]]) -> dict[str, dict[str, Any]]:
-    """Run your agent and return its verdicts on CHOSEN_POINTS for every company.
-
-    ``companies`` maps each company folder name to its four LangChain tools:
-
-        list_documents()             names and dates of the company's documents
-        read_document(name)          the text of one document
-        sql_query(query)             one read-only SQLite query on company.db
-        interview(role, topic)       one interview answer (INTERVIEW_LIMIT per company)
-
-    Give the tools to a tool-calling agent, e.g.
-    ``create_agent(model, tools=companies[name], system_prompt=...)``, or call
-    them yourself with ``tool.invoke({...})``. The README explains the
-    documents, the database tables and the interview roles and topics.
-
-    Return one dictionary per company folder name, e.g. with
-    CHOSEN_POINTS = [1, 7, 15]:
-
-        {
-            "hollins_group": {
-                "points": {1: "PASS", 7: "FAIL", 15: "PASS"},
-                "summary": "Two or three sentences explaining the verdicts.",
-            },
-            ...
-        }
-
-    Each chosen point needs a verdict ("PASS" or "FAIL"; True/False also
-    works). Other points are ignored.
-
-    Catch errors per company (e.g. a failed API call) and still return an
-    entry for it: an exception here means no results.csv, which scores zero.
-    You may analyse companies in parallel (e.g. ``asyncio.gather``).
+async def analyze_companies(
+    agent: Any,
+    companies: dict[str, list[Any]],
+) -> dict[str, dict[str, Any]]:
+    query = """
+    SELECT
+        r.year AS year,
+        ROUND(r.revenue, 2) AS revenue,
+        ROUND(
+            (r.revenue - c.cost_of_sales - c.selling_admin - c.research_development)
+            / NULLIF(r.revenue, 0) * 100,
+            2
+        ) AS operating_margin_pct,
+        im.revenue_growth_2y_pct AS industry_revenue_growth_2y_pct,
+        im.operating_margin_pct AS industry_operating_margin_pct
+    FROM (
+        SELECT
+            CAST(substr(order_date, 1, 4) AS INTEGER) AS year,
+            SUM(amount) AS revenue
+        FROM orders
+        WHERE order_date >= '2023-01-01'
+          AND order_date < '2026-01-01'
+        GROUP BY CAST(substr(order_date, 1, 4) AS INTEGER)
+    ) AS r
+    JOIN (
+        SELECT
+            CAST(substr(month, 1, 4) AS INTEGER) AS year,
+            SUM(cost_of_sales) AS cost_of_sales,
+            SUM(selling_admin) AS selling_admin,
+            SUM(research_development) AS research_development
+        FROM monthly_costs
+        WHERE month >= '2023-01'
+          AND month <= '2025-12'
+        GROUP BY CAST(substr(month, 1, 4) AS INTEGER)
+    ) AS c ON c.year = r.year
+    JOIN company AS co ON 1 = 1
+    JOIN industry_medians AS im ON im.industry = co.industry
+    WHERE r.year IN (2023, 2024, 2025)
+    ORDER BY r.year
     """
-    ### YOUR CODE HERE
-    _ = agent
-    return {name: {"points": {}, "summary": ""} for name in companies}
+
+    results: dict[str, dict[str, Any]] = {}
+
+    for company_name, tools in companies.items():
+        try:
+            sql_tool = next(
+                tool for tool in tools
+                if getattr(tool, "name", "") == "sql_query"
+            )
+            raw_result = str(sql_tool.invoke({"query": query}))
+
+            if raw_result.startswith("SQL error:"):
+                raise ValueError(raw_result)
+
+            lines = [
+                line.strip()
+                for line in raw_result.splitlines()
+                if line.strip()
+            ]
+            headers = [part.strip() for part in lines[0].split("|")]
+            annual_data: dict[int, dict[str, str]] = {}
+
+            for line in lines[1:]:
+                if "|" not in line or line.startswith("..."):
+                    continue
+
+                values = [part.strip() for part in line.split("|")]
+                if len(values) != len(headers):
+                    continue
+
+                row = dict(zip(headers, values))
+                year = int(float(row["year"]))
+                annual_data[year] = row
+
+            if not all(year in annual_data for year in (2023, 2024, 2025)):
+                raise ValueError(f"Missing annual data. SQL output: {raw_result}")
+
+            revenue_2023 = float(annual_data[2023]["revenue"])
+            revenue_2025 = float(annual_data[2025]["revenue"])
+            margin_2024 = float(annual_data[2024]["operating_margin_pct"])
+            margin_2025 = float(annual_data[2025]["operating_margin_pct"])
+            industry_growth = float(
+                annual_data[2025]["industry_revenue_growth_2y_pct"]
+            )
+            industry_margin = float(
+                annual_data[2025]["industry_operating_margin_pct"]
+            )
+
+            revenue_growth_2y = (revenue_2025 / revenue_2023 - 1) * 100
+
+            points = {
+                1: "PASS" if revenue_growth_2y > industry_growth else "FAIL",
+                5: "PASS" if margin_2025 > industry_margin else "FAIL",
+                6: "PASS" if margin_2025 >= margin_2024 else "FAIL",
+            }
+
+            prompt = f"""
+            Write a concise 2-3 sentence summary for this company.
+            Use only the figures below. Do not change the verdicts
+            or invent facts.
+
+            Company: {company_name}
+
+            Point 1: Revenue growth from 2023 to 2025 was
+            {revenue_growth_2y:.2f}%; the industry median was
+            {industry_growth:.2f}%. Verdict: {points[1]}.
+
+            Point 5: The 2025 operating margin was {margin_2025:.2f}%;
+            the industry median was {industry_margin:.2f}%.
+            Verdict: {points[5]}.
+
+            Point 6: The operating margin was {margin_2024:.2f}% in 2024
+            and {margin_2025:.2f}% in 2025. Verdict: {points[6]}.
+            """
+
+            response = await asyncio.to_thread(agent.invoke, prompt)
+            summary = getattr(response, "content", str(response))
+
+            if isinstance(summary, list):
+                summary = " ".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in summary
+                )
+
+            results[company_name] = {
+                "points": points,
+                "summary": str(summary).strip(),
+            }
+
+        except Exception as exc:
+            results[company_name] = {
+                "points": {point: None for point in CHOSEN_POINTS},
+                "summary": f"Analysis error: {exc}",
+            }
+
+    return results
 
 
 # Everything below is provided runner/scoring code. No edits are needed.
