@@ -172,17 +172,38 @@ names and wording, and scores your 3 points only.
 
 ## Homework 3 solution:
 > to students: this is your report, see the homework description.
-> I selected Fisher’s Points 1, 5, and 6 because they evaluate three related but distinct aspects of a company’s financial performance: revenue growth, profitability relative to its industry, and whether profitability improved over time. These points can be assessed with the financial data available through the provided SQL tool.
-Point	PASS rule	Evidence used
-1: Revenue growth	PASS if the company’s revenue growth from 2023 to 2025 is greater than the industry’s two-year median revenue growth. Growth is calculated as (2025 revenue / 2023 revenue - 1) × 100.	Annual revenue aggregated from the orders table for 2023 and 2025; industry growth median from industry_medians.
-5: Operating margin	PASS if the company’s 2025 operating margin is greater than its industry’s median operating margin. Operating margin is calculated as (revenue - cost of sales - selling and administrative expenses - research and development expenses) / revenue × 100.	2025 revenue from orders; expenses aggregated from monthly_costs; industry margin median from industry_medians.
-6: Margin trend	PASS if the company’s 2025 operating margin is greater than or equal to its 2024 operating margin.	The company’s 2024 and 2025 revenue and expenses, retrieved through the SQL tool.
+```
+
+For each company, the program retrieves the required financial figures using the provided SQL tool. Python calculates the metrics and applies the three rules, so the verdicts are based on explicit and consistent comparisons. DeepSeek generates a concise explanation from the figures and verdicts; it does not determine or change the PASS/FAIL results. This design keeps the scoring process reproducible while making the results easier to read.
+
+### Public Test Results
+
+The program achieved **60/60 correct judgments** on the public test set: 20 companies evaluated on three selected points each. There were no judgment disagreements in the public test set. This result applies to the public test data; the result on unseen data may differ.
 
 ### My 3 points and rules
 > for each point: why you chose it, your PASS rule in one or two sentences, and the evidence it uses. Quote Fisher where it helps.
+### Selected Points and PASS Rules
+
+I selected Fisher’s Points 1, 5, and 6 because they assess three related aspects of a company’s financial performance: revenue growth, profitability relative to its industry, and change in profitability over time. These points can be evaluated using the financial data available through the provided SQL tool.
+
+| Fisher’s Point | PASS rule | Evidence used |
+|---|---|---|
+| **Point 1: Revenue growth** | PASS if the company’s revenue growth from 2023 to 2025 is greater than the industry’s two-year median revenue growth. Revenue growth is calculated as `(2025 revenue / 2023 revenue - 1) × 100`. | Annual revenue from the `orders` table and the industry growth median from `industry_medians`. |
+| **Point 5: Operating margin** | PASS if the company’s 2025 operating margin is greater than the industry’s median operating margin. Operating margin is calculated as `(revenue - cost of sales - selling and administrative expenses - research and development expenses) / revenue × 100`. | 2025 revenue from `orders`, expenses from `monthly_costs`, and the industry margin median from `industry_medians`. |
+| **Point 6: Margin trend** | PASS if the company’s 2025 operating margin is greater than or equal to its 2024 operating margin. | The company’s 2024 and 2025 revenue and expenses, retrieved through the SQL tool. |
+
 
 ### Design
 > a visualization of your agent design and one paragraph describing it.
+### Agent Design
+
+```mermaid
+flowchart TD
+    A["Company analysis"] --> B["Provided SQL tool"]
+    B --> C["Annual revenue and cost data"]
+    C --> D["Python calculates metrics and PASS/FAIL"]
+    D --> E["DeepSeek writes a concise summary"]
+    E --> F["Results are returned for evaluation"]
 
 ### Results
 > your point score on `public_test`, the companies where your verdicts disagree with the public answers, and why.
