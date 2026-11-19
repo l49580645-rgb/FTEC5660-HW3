@@ -172,6 +172,11 @@ names and wording, and scores your 3 points only.
 
 ## Homework 3 solution:
 > to students: this is your report, see the homework description.
+> I selected Fisher’s Points 1, 5, and 6 because they evaluate three related but distinct aspects of a company’s financial performance: revenue growth, profitability relative to its industry, and whether profitability improved over time. These points can be assessed with the financial data available through the provided SQL tool.
+Point	PASS rule	Evidence used
+1: Revenue growth	PASS if the company’s revenue growth from 2023 to 2025 is greater than the industry’s two-year median revenue growth. Growth is calculated as (2025 revenue / 2023 revenue - 1) × 100.	Annual revenue aggregated from the orders table for 2023 and 2025; industry growth median from industry_medians.
+5: Operating margin	PASS if the company’s 2025 operating margin is greater than its industry’s median operating margin. Operating margin is calculated as (revenue - cost of sales - selling and administrative expenses - research and development expenses) / revenue × 100.	2025 revenue from orders; expenses aggregated from monthly_costs; industry margin median from industry_medians.
+6: Margin trend	PASS if the company’s 2025 operating margin is greater than or equal to its 2024 operating margin.	The company’s 2024 and 2025 revenue and expenses, retrieved through the SQL tool.
 
 ### My 3 points and rules
 > for each point: why you chose it, your PASS rule in one or two sentences, and the evidence it uses. Quote Fisher where it helps.
