@@ -172,7 +172,6 @@ names and wording, and scores your 3 points only.
 
 ## Homework 3 solution:
 > to students: this is your report, see the homework description.
-```
 
 For each company, the program retrieves the required financial figures using the provided SQL tool. Python calculates the metrics and applies the three rules, so the verdicts are based on explicit and consistent comparisons. DeepSeek generates a concise explanation from the figures and verdicts; it does not determine or change the PASS/FAIL results. This design keeps the scoring process reproducible while making the results easier to read.
 
