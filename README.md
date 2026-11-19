@@ -195,7 +195,6 @@ I selected Fisher’s Points 1, 5, and 6 because they assess three related aspec
 ### Design
 > a visualization of your agent design and one paragraph describing it.
 ### Agent Design
-
 ```mermaid
 flowchart TD
     A["Company analysis"] --> B["Provided SQL tool"]
@@ -203,6 +202,8 @@ flowchart TD
     C --> D["Python calculates metrics and PASS/FAIL"]
     D --> E["DeepSeek writes a concise summary"]
     E --> F["Results are returned for evaluation"]
-
+```
 ### Results
 > your point score on `public_test`, the companies where your verdicts disagree with the public answers, and why.
+>
+> The agent achieved **60/60 correct judgments** on `public_test` (20 companies × 3 selected points). There were no disagreements with the public answers, so there are no companies or disagreement causes to report.
